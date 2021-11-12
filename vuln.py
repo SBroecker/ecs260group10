@@ -88,7 +88,8 @@ for v in actual_vulnerabilities:
 # convert the strings into a list
 df["vulnerability"] = df["vulnerability"].str.split(" ").str[:-1]
 
-df2 = df.set_index(["package", "version"])
+df2 = df.drop_duplicates(subset=["package", "version", "release_date"]).set_index(["package", "version"]).sort_index()
+
 
 # CREATE DEPENDENCY GRAPHS
 import json
