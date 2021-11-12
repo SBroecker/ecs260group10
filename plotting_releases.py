@@ -35,7 +35,6 @@ for name, group in df.groupby("package", sort=False):
     # group.amax = group["release_date"].iloc[-1]
     # draw a line between those two dates
     # ax.hlines(counter, dt.date2num(group.amin), dt.date2num(group.amax))
-
     # create a new list that has as many elements as the package has releases
     lst = [counter] * len(group["release_date"])
     # create a point for each release

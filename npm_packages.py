@@ -57,12 +57,16 @@ def get_package_metadata(packages, meta_file):
 					return
 				# get the versions section from the metadata
 				versions = metadata["versions"]
+				# get keywords of the data
+				keywords = []
+				if "keywords" in metadata:
+					keywords = metadata["keywords"]
 				# get the times for each version
 				vh = metadata["time"]
 				# for each version in the npm registry
 				for key, value in versions.items():
-					# write a row to the metadata table with: package name, version, date, and dependencies
-					csv_writer.writerow([package, key, vh.get(key), json.dumps(value.get("dependencies"))])
+					# write a row to the metadata table with: package name, version, date, vulnerabilities, and dependencies
+					csv_writer.writerow([package, key, vh.get(key), keywords, json.dumps(value.get("dependencies"))])
 
 if __name__ == '__main__':
 
@@ -71,6 +75,6 @@ if __name__ == '__main__':
 	# fetch_package_list(packages_filename)
 
 	# write dependency info to metadata file
-	metadata_filename = "{}/metadata.csv".format(DATA_PATH)
+	metadata_filename = "{}/metadata_kw.csv".format(DATA_PATH)
 	# https://gist.github.com/anvaka/8e8fa57c7ee1350e3491
 	get_package_metadata("top_packages.csv", metadata_filename)
