@@ -11,8 +11,22 @@ df["vulnerability"] = ""
 
 # convert the release_date column into a datetime object
 df["release_date"] = df["release_date"].astype('datetime64[ns]')
-# add a column for today
-df["today"] = pd.to_datetime("today")
+
+# get the previous release date for each package version
+df["last_release_date"] = df.sort_values("release_date").groupby("package")["release_date"].shift(1)
+# get the most recent release date for each package
+df["max_release_date"] = df.sort_values("release_date").groupby("package")["release_date"].transform(max)
+# find the difference between the current version and the most recent version
+df["max_release_staleness"] = (df["max_release_date"] - df["release_date"]).dt.days
+# find how long it has been since the previous version
+df["time_since_prev"] = (df["release_date"] - df["last_release_date"]).dt.days
+
+# rank each version of a package
+df["release_rank"] = df.sort_values("release_date").groupby("package")["release_date"].rank()
+# find the rank of the latest version of the package
+df["max_release_rank"] = df.sort_values("release_date").groupby("package")["release_rank"].transform(max)
+# get the difference between the current version and the most recent version
+df["version_sequence_staleness"] = (df["max_release_rank"] - df["release_rank"])
 
 # sort the dataframe by release date
 df =  df.sort_values("release_date")
@@ -108,7 +122,7 @@ def parse_packages(deps):
             f = df2.loc[(key, value)]
             # if the package version was found
             # add it to the list packages with the release date
-            all_deps.append([key, value, f.release_date, f.keywords, f.vulnerability])
+            all_deps.append([key, value, f.release_date, f.keywords, f.vulnerability, f.max_release_staleness, f.time_since_prev, f.version_sequence_staleness])
         except:
             # if it wasn't found, check if the package exists in our df at all
             try:
@@ -116,10 +130,10 @@ def parse_packages(deps):
                 # if it does, get the most recent version
                 idx = new_f.release_date.idxmax()
                 new_f = new_f.loc[idx]
-                all_deps.append([key, idx, new_f.release_date, f.keywords, new_f.vulnerability])
+                all_deps.append([key, idx, new_f.release_date, new_f.keywords, new_f.vulnerability, new_f.max_release_staleness, new_f.time_since_prev, new_f.version_sequence_staleness])
             except:
                 # if it doesn't, return None for the release date
-                all_deps.append([key, value, None, None])
+                all_deps.append([key, value, None, None, None, None, None, None])
     return all_deps
 
 # for tracking how long it takes to build the dependency graphs
