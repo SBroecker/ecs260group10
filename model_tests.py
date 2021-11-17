@@ -107,13 +107,23 @@ df["has_vuln"] = np.where(df["vulnerabilities"].str.len() != 0, 1, 0)
 # START SOME MODELING TESTS
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+from sklearn.ensemble import RandomForestClassifier
+
+# get latest release of each package
+idx = df.groupby(['package'])['release_date'].transform(max) == df['release_date']
+test2 = df[idx]
 
 # prepare features and labels
 X = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]].fillna(0)
 Y = df["has_vuln"]
+
+X_new = test2[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]].fillna(0)
+Y_new = test2["has_vuln"]
 
 # split data for training and testing with a 50/50 split
 from sklearn.model_selection import train_test_split
@@ -126,17 +136,22 @@ reg = LogisticRegression().fit(X_train, y_train)
 r2 = reg.score(X_test, y_test)
 
 # create a new input dataframe that includes keywords
-X2 = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "keywords"]].fillna(0)
-X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X2, Y, test_size=0.50)
+X_new = test2[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "keywords"]].fillna(0)
+X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X_new, Y_new, test_size=0.50)
+
+X_tftrain = X2[:60000]
+X_tftest = X2[60000:]
+y_tftrain = Y[:60000]
+y_tftest = Y[60000:]
 
 # create a scaler transformer to transform raw numeric columns into Z scores
 scaler = StandardScaler()
 # screate a vectorizer to transform keywords with TF-IDF
-tfidf_model = TfidfVectorizer()
+tfidf_model = CountVectorizer()
 
 # make a transformer that applies the scaler transformer to the numeric columns and the vectorizer transformer on the keywords
 preprocessor = ColumnTransformer([
-    ("stalenesses", scaler, ["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]),
+    ("stalenesses", scaler, ["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]),
     ("tfidf", tfidf_model, "keywords")
 ])
 
@@ -151,6 +166,13 @@ pipe.fit(X_tftrain, y_tftrain)
 
 # check how well we did by getting an R^2 value
 tf_r2 = pipe.score(X_tftest, y_tftest)
+
+y_pred = pipe.predict(X_tftest)
+conf = confusion_matrix(y_tftest, y_pred)
+
+disp = ConfusionMatrixDisplay(conf)
+disp.plot()
+plt.show()
 
 # END MODELING TESTS
 
