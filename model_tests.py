@@ -102,6 +102,18 @@ df["dep_version_sequence_staleness"] = df["dependencies"].apply(version_sequence
 # calculate a basic binary label
 df["has_vuln"] = np.where(df["vulnerabilities"].str.len() != 0, 1, 0)
 
+# get latest release of each package
+idx = df.groupby(['package'])['release_date'].transform(min) == df['release_date']
+df = df[idx]
+
+# check correlation between features
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+hm = sns.heatmap(df.corr(), annot=True)
+plt.tight_layout()
+plt.show()
+
 # END FORMATTING AND CALCULATING FEAURES
 
 # START SOME MODELING TESTS
@@ -111,38 +123,35 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-
+from sklearn.feature_selection import RFECV
 from sklearn.ensemble import RandomForestClassifier
 
-# get latest release of each package
-idx = df.groupby(['package'])['release_date'].transform(max) == df['release_date']
-test2 = df[idx]
+# # prepare features and labels
+# X = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]].fillna(0)
+# Y = df["has_vuln"]
 
-# prepare features and labels
-X = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]].fillna(0)
-Y = df["has_vuln"]
+# X_new = test2[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]].fillna(0)
+# Y_new = test2["has_vuln"]
 
-X_new = test2[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]].fillna(0)
-Y_new = test2["has_vuln"]
-
-# split data for training and testing with a 50/50 split
+# # split data for training and testing with a 50/50 split
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.50)
+# X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.50)
 
-# run a logistic regression
-reg = LogisticRegression().fit(X_train, y_train)
+# # run a logistic regression
+# reg = LogisticRegression().fit(X_train, y_train)
 
-# check how well we did by getting an R^2 value
-r2 = reg.score(X_test, y_test)
+# # check how well we did by getting an R^2 value
+# r2 = reg.score(X_test, y_test)
 
 # create a new input dataframe that includes keywords
-X_new = test2[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "keywords"]].fillna(0)
+X_new = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "keywords"]].fillna(0)
+Y_new = df["has_vuln"]
 X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X_new, Y_new, test_size=0.50)
 
-X_tftrain = X2[:60000]
-X_tftest = X2[60000:]
-y_tftrain = Y[:60000]
-y_tftest = Y[60000:]
+# X_tftrain = X2[:60000]
+# X_tftest = X2[60000:]
+# y_tftrain = Y[:60000]
+# y_tftest = Y[60000:]
 
 # create a scaler transformer to transform raw numeric columns into Z scores
 scaler = StandardScaler()
@@ -151,14 +160,17 @@ tfidf_model = CountVectorizer()
 
 # make a transformer that applies the scaler transformer to the numeric columns and the vectorizer transformer on the keywords
 preprocessor = ColumnTransformer([
-    ("stalenesses", scaler, ["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"]),
-    ("tfidf", tfidf_model, "keywords")
+    ("stalenesses", scaler, ["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness"])
+    # ,("tfidf", tfidf_model, "keywords")
 ])
+
+log = LogisticRegression()
+selector = RFECV(log, verbose=1)
 
 # create a pipeline that applies the transformers and then feeds them into a model
 pipe = Pipeline([
     ("preprocessor", preprocessor),
-    ("model", LogisticRegression())
+    ("model", selector)
 ])
 
 # fit the transformer to the training data
@@ -176,3 +188,14 @@ plt.show()
 
 # END MODELING TESTS
 
+
+# Plot number of features VS. cross-validation scores
+plt.figure()
+plt.xlabel("Number of features selected")
+plt.ylabel("Cross validation score (accuracy)")
+plt.plot(
+    range(1, len(selector.grid_scores_) + 1),
+    selector.grid_scores_,
+)
+plt.legend()
+plt.show()
