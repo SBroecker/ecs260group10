@@ -2,7 +2,8 @@ import pandas as pd
 import requests
 
 # the file created with the npm_packages.py file
-metadata_file = "db/metadata_kw.csv"
+metadata_file = "db/metadata_all.csv"
+pickle_file_name = "db/graphs_all.pkl"
 
 # create a pandas dataframe from the metadata file
 df = pd.read_csv(metadata_file, names=["package", "version", "release_date", "keywords", "dependencies"])
@@ -38,6 +39,7 @@ package_versions = df.groupby("package").agg(versions=("version", "unique"))
 vulnerabilities = []
 url = "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk"
 
+print("checking packages for known vulnerabilities")
 # for each package, send a request to npm to get all of the known vulnerabilities
 for index, row in package_versions.iterrows():
     body = {
@@ -50,6 +52,7 @@ for index, row in package_versions.iterrows():
 # filter out packages that didn't have known vulnerabilities
 actual_vulnerabilities = [x for x in vulnerabilities if x[1] != {}]
 
+print("adding vulnerabilities to dataframe")
 # loop through the vulnerabilities
 for v in actual_vulnerabilities:
     # get the package name
@@ -136,6 +139,7 @@ def parse_packages(deps):
                 all_deps.append([key, value, None, None, None, None, None, None])
     return all_deps
 
+print("building dependency graphs")
 # for tracking how long it takes to build the dependency graphs
 from time import process_time
 import pickle
@@ -148,7 +152,7 @@ start_time = process_time()
 firstten = []
 nodes = 0
 # open a file to keep track of incremental graphs
-with open("db/graphs_wv.pkl", "wb") as pickle_file:
+with open(pickle_file_name, "wb") as pickle_file:
     # go through every row in the metadata df
     for index, row in df2.iterrows():
         # get the dependencies for the current row

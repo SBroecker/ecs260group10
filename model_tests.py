@@ -5,7 +5,7 @@ import numpy as np
 # START DATA LOADING
 # unpack the incremental files
 chunks = []
-with open("db/graphs_wv.pkl", "rb") as f:
+with open("db/graphs_all.pkl", "rb") as f:
     try:
         while True:
             chunk = pickle.load(f)
