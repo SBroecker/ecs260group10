@@ -21,4 +21,4 @@ while not empty:
 
 with open("db/vulns.csv", "w") as f:
 	write = csv.writer(f)
-	write.writerows(pkgs)
+	write.writerows([pkgs])
