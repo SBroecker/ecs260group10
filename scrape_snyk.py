@@ -14,6 +14,7 @@ while not empty:
 	if len(soup.find_all("h2", {"class": "vue--empty-state__heading"})) != 0:
 		empty = True
 	anchors = soup.find_all("a", {"class": "vue--anchor", "data-snyk-test": "vuln package"})
+	versions = soup.find_all("span", {"class": "vulns-table__semver"})
 	for anchor in anchors:
 		pkg = re.split('\s+', anchor.text.strip())[0]
 		pkgs.append(pkg)

@@ -93,9 +93,16 @@ def version_sequence_staleness(graph):
     return sum(times)/len(times)
 
 # function to identify if dependency graph contains vulnerabilities
+# ["package", "version", "release_date", "keywords", "vulnerabilities", "max_release_staleness", "time_since_prev", "version_sequence_staleness"]
+
 def dep_has_vuln(graph):
-    if len(graph) != 0:
-        return 1
+    if graph != []:
+        for x in graph:
+            if (x[4] is not None) & (x[4] != []):
+                if (len(x[4]) != 0):
+                    return 1
+            else:
+                return 0
     else:
         return 0
 
@@ -144,7 +151,7 @@ X_new = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time
 Y_new = df["has_vuln"]
 
 # split data for training and testing with a 50/50 split
-X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X_new, Y_new, test_size=0.50)
+X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X_new, Y_new, test_size=0.80)
 
 # create a scaler transformer to transform raw numeric columns into Z scores
 scaler = StandardScaler()
@@ -250,3 +257,24 @@ print("auc score: ", auc)
 # get the number of features after RFE and the ranking of the features (to figure out what order they were eliminated)
 selector.n_features_
 selector.ranking_
+
+# add the prediction and the true label to the training data
+X_tftest["y_tftest"] = y_tftest
+X_tftest["y_pred"] = y_pred
+
+# break up the data into dataframes based on predictions and labels
+true_pos = X_tftest.loc[(X_tftest["y_tftest"] == 1) & (X_tftest["y_pred"] == 1)]
+true_neg = X_tftest.loc[(X_tftest["y_tftest"] == 0) & (X_tftest["y_pred"] == 0)]
+false_pos = X_tftest.loc[(X_tftest["y_tftest"] == 0) & (X_tftest["y_pred"] == 1)]
+false_neg = X_tftest.loc[(X_tftest["y_tftest"] == 1) & (X_tftest["y_pred"] == 0)]
+
+# get descriptive stats for each
+true_pos[["pkg_staleness", "dep_staleness", "version_sequence_staleness", "dep_version_sequence_staleness", "y_tftest", "y_pred"]].describe()
+true_neg[["pkg_staleness", "dep_staleness", "version_sequence_staleness", "dep_version_sequence_staleness", "y_tftest", "y_pred"]].describe()
+false_pos[["pkg_staleness", "dep_staleness", "version_sequence_staleness", "dep_version_sequence_staleness", "y_tftest", "y_pred"]].describe()
+false_neg[["pkg_staleness", "dep_staleness", "version_sequence_staleness", "dep_version_sequence_staleness", "y_tftest", "y_pred"]].describe()
+
+# get the prediction coefficients
+selector.estimator_.coef_
+
+
