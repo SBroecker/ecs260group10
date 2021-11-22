@@ -1,9 +1,10 @@
 import pandas as pd
 import requests
+s = requests.Session()
 
 # the file created with the npm_packages.py file
-metadata_file = "db/metadata_all.csv"
-pickle_file_name = "db/graphs_all.pkl"
+metadata_file = "db/metadata_expanded.csv"
+pickle_file_name = "db/graphs_expanded.pkl"
 
 # create a pandas dataframe from the metadata file
 df = pd.read_csv(metadata_file, names=["package", "version", "release_date", "keywords", "dependencies"])
@@ -45,7 +46,7 @@ for index, row in package_versions.iterrows():
     body = {
         index: row[0].tolist()
     }
-    resp = requests.post(url, json=body).json()
+    resp = s.post(url, json=body).json()
     # add the vulnerabilities of the package to our list
     vulnerabilities.append([index, resp])
 
@@ -254,9 +255,10 @@ with open(pickle_file_name, "wb") as pickle_file:
                 comp_value = value.replace("^", "").strip()
                 # get only the major version numner (the first number)
                 version_prefix = comp_value.split(".")[0]
-                # look for packages with that major version number
-                reg = "^" + version_prefix
-                f = f.filter(regex=reg, axis=0)
+                if version_prefix != "*":
+                    # look for packages with that major version number
+                    reg = "^" + version_prefix
+                    f = f.filter(regex=reg, axis=0)
                 # if any are found
                 if not f.empty:
                     # get the most recent one

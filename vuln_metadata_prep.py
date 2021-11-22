@@ -10,9 +10,9 @@ s = requests.Session()
 REGISTRY_URL = "https://registry.npmjs.org"
 DOWNLOADS_URL = "https://api.npms.io/v2/package"
 url = "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk"
-meta_file = "db/metadata_all.csv"
-num_random_packages = 10
-num_vulnerable_packages = 10
+meta_file = "db/metadata_expanded.csv"
+num_random_packages = 2000
+num_vulnerable_packages = 2000
 
 with open("db/all.json", "r") as f:
 	data = json.load(f)
@@ -44,14 +44,13 @@ with open(meta_file, 'a') as fm:
 			d_req = s.get(os.path.join(DOWNLOADS_URL, pkg))
 			if d_req.status_code == 200:
 				downloads = d_req.json()["evaluation"]["popularity"]["downloadsCount"]
-		if (versions > 5) & (downloads > 5):
+		if (versions > 5) | (downloads > 100):
 			ct += 1
 			for key, value in version_list.items():
 				# write a row to the metadata table with: package name, version, date, vulnerabilities, and dependencies
 				csv_writer.writerow([pkg, key, vh.get(key), keywords, json.dumps(value.get("dependencies"))])
 		i += 1
-
-
+print(i)
 with open("db/vulns.csv") as f:
 	raw_vulns = f.read()
 
@@ -74,14 +73,14 @@ with open(meta_file, 'a') as fm:
 			metadata = req.json()
 			# get the versions section from the metadata
 			versions = metadata["versions"]
+			# get the times for each version
+			vh = metadata["time"]
 		except Exception as e:
 			continue
 		# get keywords of the data
 		keywords = []
 		if "keywords" in metadata:
 			keywords = metadata["keywords"]
-		# get the times for each version
-		vh = metadata["time"]
 		# for each version in the npm registry
 		for key, value in versions.items():
 			# write a row to the metadata table with: package name, version, date, vulnerabilities, and dependencies
