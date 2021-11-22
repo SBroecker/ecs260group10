@@ -1,10 +1,11 @@
 import pandas as pd
 import requests
+import csv
 s = requests.Session()
 
 # the file created with the npm_packages.py file
-metadata_file = "db/metadata_expanded.csv"
-pickle_file_name = "db/graphs_expanded.pkl"
+metadata_file = "db/metadata_synk.csv"
+pickle_file_name = "db/graphs_snyk.pkl"
 
 # create a pandas dataframe from the metadata file
 df = pd.read_csv(metadata_file, names=["package", "version", "release_date", "keywords", "dependencies"])
@@ -53,6 +54,25 @@ for index, row in package_versions.iterrows():
 # filter out packages that didn't have known vulnerabilities
 actual_vulnerabilities = [x for x in vulnerabilities if x[1] != {}]
 
+# get list of packages in df
+vuln_lookup = df["package"].unique().tolist()
+
+# get known vulnerabilities from synk
+vulns = []
+# open the file
+with open("db/vulns.csv") as f:
+    # create a csv object
+    csv_reader = csv.reader(f)
+    # write a row for each package that matches the expected format
+    for row in csv_reader:
+        # if the package is in our current df, add it to the vulnerability list
+        if row[0] in vuln_lookup:
+            d = [row[0], {row[0]: [{"severity": "synk", "vulnerable_versions": row[1]}]}]
+            vulns.append(d)
+
+# combine vulnerability lists from synk and npm
+actual_vulnerabilities = actual_vulnerabilities + vulns
+
 print("adding vulnerabilities to dataframe")
 # loop through the vulnerabilities
 for v in actual_vulnerabilities:
@@ -73,6 +93,7 @@ for v in actual_vulnerabilities:
         less = False
         less_equals = False
         equals = False
+        star = False
         # placeholder variables used to filter later
         first = ""
         second = ""
@@ -91,6 +112,8 @@ for v in actual_vulnerabilities:
             elif "=" in version:
                 equals = True
                 first = version.replace("=", "")
+            elif "*" in version:
+                star = True
         # based on the flags set above, update the original dataframe with severity information
         if equals:
             df.loc[(df["package"] == pkg) & (df["version"] == first), "vulnerability"] += severity + " "
@@ -102,6 +125,8 @@ for v in actual_vulnerabilities:
             df.loc[(df["package"] == pkg) & (df["version"] < second), "vulnerability"] += severity + " "
         elif less_equals:
             df.loc[(df["package"] == pkg) & (df["version"] <= second), "vulnerability"] += severity + " "
+        elif star:
+            df.loc[(df["package"] == pkg), "vulnerability"] += severity + " "
 
 # convert the strings into a list
 df["vulnerability"] = df["vulnerability"].str.split(" ").str[:-1]

@@ -10,9 +10,9 @@ s = requests.Session()
 REGISTRY_URL = "https://registry.npmjs.org"
 DOWNLOADS_URL = "https://api.npms.io/v2/package"
 url = "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk"
-meta_file = "db/metadata_expanded.csv"
-num_random_packages = 2000
-num_vulnerable_packages = 2000
+meta_file = "db/metadata_synk.csv"
+num_random_packages = 20
+num_vulnerable_packages = 20
 
 with open("db/all.json", "r") as f:
 	data = json.load(f)
@@ -50,13 +50,22 @@ with open(meta_file, 'a') as fm:
 				# write a row to the metadata table with: package name, version, date, vulnerabilities, and dependencies
 				csv_writer.writerow([pkg, key, vh.get(key), keywords, json.dumps(value.get("dependencies"))])
 		i += 1
-print(i)
-with open("db/vulns.csv") as f:
-	raw_vulns = f.read()
 
-vulns = raw_vulns.split(",")
+# get known vulnerable packages from synk
+# create empty list to fill from file
+vulns = []
+# open the file
+with open("db/vulns.csv") as f:
+	# create a csv object
+	csv_reader = csv.reader(f)
+	# write the package name from each row to our list
+	for row in csv_reader:
+		vulns.append(row[0])
+
+# remove duplicates
 vulns = list(set(vulns))
 
+# get a random sample of packages
 v_index_list = random.sample(range(0, len(vulns)), num_vulnerable_packages)
 
 print("gathering vulnerable packages")
