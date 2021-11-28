@@ -5,7 +5,7 @@ import numpy as np
 # START DATA LOADING
 # unpack the incremental files
 chunks = []
-with open("db/graphs_expanded.pkl", "rb") as f:
+with open("db/graphs_snyk.pkl", "rb") as f:
     try:
         while True:
             chunk = pickle.load(f)
@@ -151,24 +151,24 @@ X_new = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time
 Y_new = df["has_vuln"]
 
 # split data for training and testing with a 50/50 split
-X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X_new, Y_new, test_size=0.80)
+X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X_new, Y_new, test_size=0.50)
 
 # create a scaler transformer to transform raw numeric columns into Z scores
 scaler = StandardScaler()
 # screate a vectorizer to transform keywords with TF-IDF
 tfidf_model = CountVectorizer()
 
+
 # make a transformer that applies the scaler transformer to the numeric columns and the vectorizer transformer on the keywords
+feature_columns = ["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "dep_count"]
 preprocessor = ColumnTransformer([
-    ("stalenesses", scaler, ["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "dep_count"])
+    ("stalenesses", scaler, feature_columns)
     # ,("tfidf", tfidf_model, "keywords")
 ])
 
 # provide parameter options for random forest
 param_grid = {
-    'max_depth': [80, 90, 100, 110],
-    'max_features': ["auto", 2, 3],
-    'n_estimators': [100, 200, 300, 1000]
+    'C': [0.001,0.01,0.1,1,10,100,1000]
 }
 
 # a random forest classifier object
@@ -255,8 +255,14 @@ auc = metrics.roc_auc_score(y_tftest, y_pred)
 print("auc score: ", auc)
 
 # get the number of features after RFE and the ranking of the features (to figure out what order they were eliminated)
-selector.n_features_
-selector.ranking_
+n_feats = selector.n_features_
+feat_ranking = selector.ranking_
+
+# find the indexes of the top features
+top_n_idx = np.argsort(feat_ranking, kind="stable")[:n_feats]
+
+# get the corresponding feature names
+top_features = [feature_columns[i] for i in top_n_idx]
 
 # add the prediction and the true label to the training data
 X_tftest["y_tftest"] = y_tftest
@@ -269,12 +275,26 @@ false_pos = X_tftest.loc[(X_tftest["y_tftest"] == 0) & (X_tftest["y_pred"] == 1)
 false_neg = X_tftest.loc[(X_tftest["y_tftest"] == 1) & (X_tftest["y_pred"] == 0)]
 
 # get descriptive stats for each
-true_pos[["pkg_staleness", "dep_staleness", "version_sequence_staleness", "dep_version_sequence_staleness", "y_tftest", "y_pred"]].describe()
-true_neg[["pkg_staleness", "dep_staleness", "version_sequence_staleness", "dep_version_sequence_staleness", "y_tftest", "y_pred"]].describe()
-false_pos[["pkg_staleness", "dep_staleness", "version_sequence_staleness", "dep_version_sequence_staleness", "y_tftest", "y_pred"]].describe()
-false_neg[["pkg_staleness", "dep_staleness", "version_sequence_staleness", "dep_version_sequence_staleness", "y_tftest", "y_pred"]].describe()
+true_pos[top_features+["y_tftest", "y_pred"]].describe()
+true_neg[top_features+["y_tftest", "y_pred"]].describe()
+false_pos[top_features+["y_tftest", "y_pred"]].describe()
+false_neg[top_features+["y_tftest", "y_pred"]].describe()
+
+# plot a distribution of the values of each feature, labeled by predicted value
+for feat in top_features:
+    plt.figure()
+    plt.hist(true_pos[feat], label="True Positives", bins=50, alpha=0.5)
+    plt.hist(true_neg[feat], label="True Negatives", bins=50, alpha=0.5)
+    plt.hist(false_pos[feat], label="False Positives", bins=50, alpha=0.5)
+    plt.hist(false_neg[feat], label="False Negatives", bins=50, alpha=0.5)
+    plt.legend(loc="upper right")
+    plt.title(feat)
+
+plt.show()
 
 # get the prediction coefficients
-selector.estimator_.coef_
+coefs = selector.estimator_.coef_
+
+
 
 

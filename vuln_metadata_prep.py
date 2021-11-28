@@ -50,6 +50,9 @@ with open(meta_file, 'a') as fm:
 				# write a row to the metadata table with: package name, version, date, vulnerabilities, and dependencies
 				csv_writer.writerow([pkg, key, vh.get(key), keywords, json.dumps(value.get("dependencies"))])
 		i += 1
+		if i % 1000 == 0:
+			print("Total packages checked: ", i)
+			print("Total packages in sample: ", ct)
 
 # get known vulnerable packages from synk
 # create empty list to fill from file

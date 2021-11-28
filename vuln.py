@@ -4,7 +4,7 @@ import csv
 s = requests.Session()
 
 # the file created with the npm_packages.py file
-metadata_file = "db/metadata_synk.csv"
+metadata_file = "db/metadata_expanded.csv"
 pickle_file_name = "db/graphs_snyk.pkl"
 
 # create a pandas dataframe from the metadata file
