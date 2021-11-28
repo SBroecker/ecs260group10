@@ -3,12 +3,17 @@ import requests
 import csv
 s = requests.Session()
 
-# the file created with the npm_packages.py file
+# the files for input and output
 metadata_file = "db/metadata_expanded.csv"
-pickle_file_name = "db/graphs_snyk.pkl"
+metadata_top1k_file = "db/metadata_top1k.csv"
+pickle_file_name = "db/graphs_top1k.pkl"
 
 # create a pandas dataframe from the metadata file
-df = pd.read_csv(metadata_file, names=["package", "version", "release_date", "keywords", "dependencies"])
+df_temp = pd.read_csv(metadata_file, names=["package", "version", "release_date", "keywords", "dependencies"])
+
+# get the top 1k packages and create a new df that combines the two dfs
+df1k = pd.read_csv(metadata_top1k_file, names=["package", "version", "release_date", "keywords", "dependencies"])
+df = pd.concat([df1k, df_temp]).drop_duplicates(subset=["package", "version", "release_date"]).reset_index(drop=True)
 # add an empty column that will eventually store vulnerability info
 df["vulnerability"] = ""
 
@@ -131,7 +136,14 @@ for v in actual_vulnerabilities:
 # convert the strings into a list
 df["vulnerability"] = df["vulnerability"].str.split(" ").str[:-1]
 
+# remove the top 1k from the combined df by keeping only the original list
+df_temp_unique = pd.DataFrame(df_temp.package.unique(), columns=["package"])
+df_merge = pd.merge(df, df_temp_unique, on="package", how="inner")
+
+# create a dataframe that will be used for lookups while building graphs
 df2 = df.drop_duplicates(subset=["package", "version", "release_date"]).set_index(["package", "version"]).sort_index()
+# format the newly filtered list to match the expected format in the code below
+df_merge = df_merge.drop_duplicates(subset=["package", "version", "release_date"]).set_index(["package", "version"]).sort_index()
 
 
 # CREATE DEPENDENCY GRAPHS
@@ -180,7 +192,7 @@ nodes = 0
 # open a file to keep track of incremental graphs
 with open(pickle_file_name, "wb") as pickle_file:
     # go through every row in the metadata df
-    for index, row in df2.iterrows():
+    for index, row in df_merge.iterrows():
         # get the dependencies for the current row
         d = row["dependencies"]
         package = index[0]
@@ -337,6 +349,7 @@ with open(pickle_file_name, "wb") as pickle_file:
             firstten = []
             print(nodes)
     pickle.dump(firstten, pickle_file, protocol=pickle.HIGHEST_PROTOCOL)
+
 # END CREATE DEPENDENCY GRAPHS
 
 # calculate how long it took to get all graphs

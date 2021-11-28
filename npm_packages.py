@@ -75,6 +75,6 @@ if __name__ == '__main__':
 	# fetch_package_list(packages_filename)
 
 	# write dependency info to metadata file
-	metadata_filename = "{}/metadata_kw.csv".format(DATA_PATH)
+	metadata_filename = "{}/metadata_top1k.csv".format(DATA_PATH)
 	# https://gist.github.com/anvaka/8e8fa57c7ee1350e3491
 	get_package_metadata("top_packages.csv", metadata_filename)

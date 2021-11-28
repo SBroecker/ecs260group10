@@ -5,7 +5,7 @@ import numpy as np
 # START DATA LOADING
 # unpack the incremental files
 chunks = []
-with open("db/graphs_snyk.pkl", "rb") as f:
+with open("db/graphs_top1k.pkl", "rb") as f:
     try:
         while True:
             chunk = pickle.load(f)
@@ -93,8 +93,6 @@ def version_sequence_staleness(graph):
     return sum(times)/len(times)
 
 # function to identify if dependency graph contains vulnerabilities
-# ["package", "version", "release_date", "keywords", "vulnerabilities", "max_release_staleness", "time_since_prev", "version_sequence_staleness"]
-
 def dep_has_vuln(graph):
     if graph != []:
         for x in graph:
@@ -114,7 +112,6 @@ df["dep_time_since_prev"] = df["dependencies"].apply(time_since_prev)
 df["dep_version_sequence_staleness"] = df["dependencies"].apply(version_sequence_staleness)
 df["dep_count"] = df["dependencies"].apply(len)
 df["dep_has_vuln"] = df["dependencies"].apply(dep_has_vuln)
-
 
 # calculate a basic binary label
 df["has_vuln"] = np.where((df["vulnerabilities"].str.len() != 0) | (df["dep_has_vuln"] == 1), 1, 0)
@@ -147,11 +144,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 
 # prepare features and labels
-X_new = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "dep_count", "keywords"]].fillna(0)
+X_new = df[["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "dep_count"]].fillna(0)
 Y_new = df["has_vuln"]
 
 # split data for training and testing with a 50/50 split
-X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X_new, Y_new, test_size=0.50)
+X_tftrain, X_tftest, y_tftrain, y_tftest = train_test_split(X_new, Y_new, test_size=0.30, random_state=10)
 
 # create a scaler transformer to transform raw numeric columns into Z scores
 scaler = StandardScaler()
@@ -163,7 +160,6 @@ tfidf_model = CountVectorizer()
 feature_columns = ["pkg_staleness", "dep_staleness", "dep_max_release_staleness", "time_since_prev", "version_sequence_staleness", "dep_time_since_prev", "dep_version_sequence_staleness", "dep_count"]
 preprocessor = ColumnTransformer([
     ("stalenesses", scaler, feature_columns)
-    # ,("tfidf", tfidf_model, "keywords")
 ])
 
 # provide parameter options for random forest
@@ -186,115 +182,4 @@ pipe = Pipeline([
 
 # fit the transformer to the training data
 pipe.fit(X_tftrain, y_tftrain)
-
-# check how well we did by getting an R^2 value
-tf_r2 = pipe.score(X_tftest, y_tftest)
-
-# get predictions for each test case
-y_pred = pipe.predict(X_tftest)
-
-# get % predictions for each test case
-y_pred_prob = pipe.predict_proba(X_tftest)
-
-# isolate the prediction for class 1 (vulnerable)
-y_pred_prob_1 = [x[1] for x in y_pred_prob]
-
-# generate and plot the confusion matrix
-conf = confusion_matrix(y_tftest, y_pred)
-disp = ConfusionMatrixDisplay(conf)
-disp.plot()
-plt.show()
-
-# check how predictions change over x values for a feature
-plt.scatter(X_tftest["dep_count"], y_pred_prob_1)
-plt.xlim([0, 10])
-plt.show()
-
-# check how prediction residuals change over x values for a feature
-plt.scatter(X_tftest["dep_count"], y_tftest - y_pred_prob_1)
-plt.xlim([0, 50])
-plt.show()
-
-# END MODELING TESTS
-
-
-# plot number of features VS. cross-validation scores
-plt.figure()
-plt.xlabel("Number of features selected")
-plt.ylabel("Cross validation score (accuracy)")
-plt.plot(
-    range(1, len(selector.grid_scores_) + 1),
-    selector.grid_scores_,
-)
-plt.legend()
-plt.show()
-
-# generate model metrics
-from sklearn import metrics
-print("Accuracy:",metrics.accuracy_score(y_tftest, y_pred))
-print("Precision:",metrics.precision_score(y_tftest, y_pred))
-print("Recall:",metrics.recall_score(y_tftest, y_pred))
-print("F1 Score:", metrics.f1_score(y_tftest, y_pred))
-
-# some more metrics
-import scipy
-a= np.var(y_tftest)
-b= np.var(y_pred)
-print(a,b)
-fstat_var = np.var(y_tftest,ddof=1/np.var(y_pred,ddof=1))
-dof_num = y_tftest.size - 1
-dof_den = y_pred.size - 1
-fstat_critical = scipy.stats.f.ppf(0.05,dof_num,dof_den)
-p = 1-scipy.stats.f.cdf(fstat_var, dof_num, dof_den)
-print("f critical: ",fstat_critical )
-print("f stat: ", fstat_var)
-print("p value: ", p)
-
-# calculate auc score
-auc = metrics.roc_auc_score(y_tftest, y_pred)
-print("auc score: ", auc)
-
-# get the number of features after RFE and the ranking of the features (to figure out what order they were eliminated)
-n_feats = selector.n_features_
-feat_ranking = selector.ranking_
-
-# find the indexes of the top features
-top_n_idx = np.argsort(feat_ranking, kind="stable")[:n_feats]
-
-# get the corresponding feature names
-top_features = [feature_columns[i] for i in top_n_idx]
-
-# add the prediction and the true label to the training data
-X_tftest["y_tftest"] = y_tftest
-X_tftest["y_pred"] = y_pred
-
-# break up the data into dataframes based on predictions and labels
-true_pos = X_tftest.loc[(X_tftest["y_tftest"] == 1) & (X_tftest["y_pred"] == 1)]
-true_neg = X_tftest.loc[(X_tftest["y_tftest"] == 0) & (X_tftest["y_pred"] == 0)]
-false_pos = X_tftest.loc[(X_tftest["y_tftest"] == 0) & (X_tftest["y_pred"] == 1)]
-false_neg = X_tftest.loc[(X_tftest["y_tftest"] == 1) & (X_tftest["y_pred"] == 0)]
-
-# get descriptive stats for each
-true_pos[top_features+["y_tftest", "y_pred"]].describe()
-true_neg[top_features+["y_tftest", "y_pred"]].describe()
-false_pos[top_features+["y_tftest", "y_pred"]].describe()
-false_neg[top_features+["y_tftest", "y_pred"]].describe()
-
-# plot a distribution of the values of each feature, labeled by predicted value
-for feat in top_features:
-    plt.figure()
-    plt.hist(true_pos[feat], label="True Positives", bins=50, alpha=0.5)
-    plt.hist(true_neg[feat], label="True Negatives", bins=50, alpha=0.5)
-    plt.hist(false_pos[feat], label="False Positives", bins=50, alpha=0.5)
-    plt.hist(false_neg[feat], label="False Negatives", bins=50, alpha=0.5)
-    plt.legend(loc="upper right")
-    plt.title(feat)
-
-plt.show()
-
-# get the prediction coefficients
-coefs = selector.estimator_.coef_
-
-
-
 
