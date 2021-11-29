@@ -4,9 +4,9 @@ import csv
 s = requests.Session()
 
 # the files for input and output
-metadata_file = "db/metadata_expanded.csv"
+metadata_file = "db/metadata_snyk.csv"
 metadata_top1k_file = "db/metadata_top1k.csv"
-pickle_file_name = "db/graphs_top1k.pkl"
+pickle_file_name = "db/graphs_snyk_top1k.pkl"
 
 # create a pandas dataframe from the metadata file
 df_temp = pd.read_csv(metadata_file, names=["package", "version", "release_date", "keywords", "dependencies"])

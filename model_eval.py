@@ -20,25 +20,6 @@ disp = ConfusionMatrixDisplay(conf)
 disp.plot()
 plt.show()
 
-# check how predictions change over x values for a feature
-plt.scatter(X_tftest["pkg_staleness"], y_pred_prob_1)
-plt.show()
-
-# check how prediction residuals change over x values for a feature
-plt.scatter(X_tftest["pkg_staleness"], y_tftest - y_pred_prob_1)
-plt.show()
-
-
-# plot number of features VS. cross-validation scores
-plt.figure()
-plt.xlabel("Number of features selected")
-plt.ylabel("Cross validation score (accuracy)")
-plt.plot(
-    range(1, len(selector.grid_scores_) + 1),
-    selector.grid_scores_,
-)
-plt.show()
-
 # generate model metrics
 from sklearn import metrics
 print("Accuracy:",metrics.accuracy_score(y_tftest, y_pred))
@@ -91,13 +72,31 @@ false_pos[top_features+["y_tftest", "y_pred"]].describe()
 false_neg[top_features+["y_tftest", "y_pred"]].describe()
 
 # plot a distribution of the values of each feature, labeled by predicted value
+from scipy import stats
 for feat in top_features:
     plt.figure()
-    plt.hist(true_pos[feat], label="True Positives", bins=50, alpha=0.5)
-    plt.hist(true_neg[feat], label="True Negatives", bins=50, alpha=0.5)
-    plt.hist(false_pos[feat], label="False Positives", bins=50, alpha=0.5)
-    plt.hist(false_neg[feat], label="False Negatives", bins=50, alpha=0.5)
+    plt.hist(true_pos[(np.abs(stats.zscore(true_pos[feat])) < 2)][feat], label="True Positives", bins=50, alpha=0.5)
+    plt.hist(true_neg[(np.abs(stats.zscore(true_neg[feat])) < 2)][feat], label="True Negatives", bins=50, alpha=0.5)
+    plt.hist(false_pos[(np.abs(stats.zscore(false_pos[feat])) < 2)][feat], label="False Positives", bins=50, alpha=0.5)
+    plt.hist(false_neg[(np.abs(stats.zscore(false_neg[feat])) < 2)][feat], label="False Negatives", bins=50, alpha=0.5)
     plt.legend(loc="upper right")
+    plt.title(feat)
+
+plt.show()
+
+
+# check how predictions change over x values for a feature
+for feat in top_features:
+    plt.figure()
+    plt.scatter(X_tftest[feat], y_pred_prob_1)
+    plt.title(feat)
+
+plt.show()
+
+# check how prediction residuals change over x values for a feature
+for feat in top_features:
+    plt.figure()
+    plt.scatter(X_tftest[feat], abs(y_tftest - y_pred_prob_1))
     plt.title(feat)
 
 plt.show()
@@ -107,6 +106,10 @@ coefs = selector.estimator_.coef_.tolist()[0]
 
 # a basic bar chart to show the weights for each feature
 plt.bar(top_features, coefs)
+plt.axhline(y=0, color="r")
+plt.xticks(rotation = 45)
+plt.title("Feature Importance")
+plt.tight_layout()
 plt.show()
 
 
