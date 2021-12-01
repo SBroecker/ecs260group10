@@ -135,22 +135,24 @@ df["dep_known_nodes"] = df["dependencies"].apply(known_nodes)
 # calculate a basic binary label
 df["has_vuln"] = np.where((df["vulnerabilities"].str.len() != 0) | (df["dep_has_vuln"] == 1), 1, 0)
 
+df_rand = df.groupby("package").agg(pd.DataFrame.sample)
+
 # get latest (max)/oldest (min) release of each package
 idx_min = df.groupby(['package'])['release_date'].transform(min) == df['release_date']
 idx_max = df.groupby(['package'])['release_date'].transform(max) == df['release_date']
 df_min = df[idx_min]
 df_max = df[idx_max]
 
-df = df_min
+df = df_rand
 
 # check correlation between features
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # show a heatmeat for the correlations between features
-hm = sns.heatmap(df.corr(), annot=True)
-plt.tight_layout()
-plt.show()
+# hm = sns.heatmap(df.corr(), annot=True)
+# plt.tight_layout()
+# plt.show()
 
 # END FORMATTING AND CALCULATING FEAURES
 
@@ -188,7 +190,7 @@ param_grid = {
 }
 
 # a random forest classifier object
-log = LogisticRegression()
+log = LogisticRegression(class_weight="balanced")
 # pass the forest object to the grid search object with the optional params
 grid = GridSearchCV(log, param_grid, verbose=1, cv=3)
 # pass the forest object to the RFE object

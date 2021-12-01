@@ -96,7 +96,7 @@ plt.show()
 # check how prediction residuals change over x values for a feature
 for feat in top_features:
     plt.figure()
-    plt.scatter(X_tftest[feat], abs(y_tftest - y_pred_prob_1))
+    plt.scatter(X_tftest[feat], (y_pred_prob_1 - y_tftest))
     plt.title(feat)
 
 plt.show()
