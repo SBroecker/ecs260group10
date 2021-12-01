@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 
 # the file created with the npm_packages.py file
-metadata_file = "db/metadata.csv"
+metadata_file = "db/metadata_snyk.csv"
 
 # create a pandas dataframe from the metadata file
-df = pd.read_csv(metadata_file, names=["package", "version", "release_date", "dependencies"])
+df = pd.read_csv(metadata_file, names=["package", "version", "release_date", "keywords", "vulnerabilities", "max_release_staleness", "time_since_prev", "version_sequence_staleness", "dependencies"])
 
 # convert the release_date column into a datetime object
 df["release_date"] = df["release_date"].astype('datetime64[ns]')
@@ -43,6 +43,9 @@ for name, group in df.groupby("package", sort=False):
     counter += 1
 
 # show the plot
+plt.xlabel("Release Date")
+plt.ylabel("Package Index")
+plt.title("Releases Over Time")
 plt.show()
 # END VISUALIZING RELEASES OVER TIME
 
@@ -83,6 +86,9 @@ delta_df.delta = delta_df.delta.dt.days
 
 # create a histogram with 100 buckets
 hist = delta_df.hist(column="delta", bins=100)
+plt.xlabel("Time Between Releases (Days)")
+plt.ylabel("Frequency")
+plt.title("Histogram of Package Release Times")
 # show the histogram
 plt.show()
 # END HISTOGRAM OF THE TIME BETWEEN RELEASES

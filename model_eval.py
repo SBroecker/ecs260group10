@@ -18,6 +18,7 @@ y_pred_prob_1 = [x[1] for x in y_pred_prob]
 conf = confusion_matrix(y_tftest, y_pred)
 disp = ConfusionMatrixDisplay(conf)
 disp.plot()
+plt.title("Confusion Matrix")
 plt.show()
 
 # generate model metrics
@@ -80,6 +81,8 @@ for feat in top_features:
     plt.hist(false_pos[(np.abs(stats.zscore(false_pos[feat])) < 2)][feat], label="False Positives", bins=50, alpha=0.5)
     plt.hist(false_neg[(np.abs(stats.zscore(false_neg[feat])) < 2)][feat], label="False Negatives", bins=50, alpha=0.5)
     plt.legend(loc="upper right")
+    plt.xlabel("Staleness (Days)")
+    plt.ylabel("Frequency")
     plt.title(feat)
 
 plt.show()
@@ -109,6 +112,7 @@ plt.bar(top_features, coefs)
 plt.axhline(y=0, color="r")
 plt.xticks(rotation = 45)
 plt.title("Feature Importance")
+plt.ylabel("Feature Coefficient")
 plt.tight_layout()
 plt.show()
 
