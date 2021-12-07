@@ -135,7 +135,7 @@ df["dep_known_nodes"] = df["dependencies"].apply(known_nodes)
 # calculate a basic binary label
 df["has_vuln"] = np.where((df["vulnerabilities"].str.len() != 0) | (df["dep_has_vuln"] == 1), 1, 0)
 
-df_rand = df.groupby("package").agg(pd.DataFrame.sample)
+df_rand = df.sample(frac = 1.0).groupby("package").head(1)
 
 # get latest (max)/oldest (min) release of each package
 # idx_min = df.groupby(['package'])['release_date'].transform(min) == df['release_date']
